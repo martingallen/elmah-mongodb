@@ -89,7 +89,7 @@ namespace Elmah
 
 		static MongoErrorLog()
 		{
-			BsonSerializer.RegisterSerializer(typeof(NameValueCollection), NameValueCollectionSerializer.Instance);
+			BsonSerializer.RegisterSerializer(typeof(NameValueCollection), new NameValueCollectionSerializer());
 			BsonClassMap.RegisterClassMap<Error>(cm =>
 			{
 				cm.MapProperty(c => c.ApplicationName);
@@ -132,7 +132,7 @@ namespace Elmah
 				}
 
 				_collection = database.GetCollection(_collectionName);
-				_mongoInsertOptions = new MongoInsertOptions { CheckElementNames = false };
+				_mongoInsertOptions = new MongoInsertOptions { Flags = InsertFlags.ContinueOnError };
 			}
 		}
 
