@@ -2,9 +2,9 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
   <metadata>
     <id>elmah.mongodb</id>
-    <version>1.7</version>
+    <version>1.7.2</version>
     <title>ELMAH on MongoDB (requires manual config)</title>
-    <authors>Simon Green</authors>
+    <authors>Simon Green / Martin Allen</authors>
     <owners>Simon Green</owners>
     <licenseUrl>http://www.apache.org/licenses/LICENSE-2.0</licenseUrl>
     <projectUrl>https://github.com/CaptainCodeman/elmah-mongodb</projectUrl>
@@ -15,7 +15,14 @@
     <tags>mongodb elmah error logging unhandled exception</tags>
     <dependencies>
       <dependency id="elmah" version="1.2.2" />
-      <dependency id="mongocsharpdriver" version="1.7" />
+      <dependency id="mongocsharpdriver" version="2.5.0.0" />
+      <!--<dependency id="dnsclient" version="1.0.7.0" />
+      <dependency id="MongoDB.Bson" version="2.5.0.0" />
+      <dependency id="MongoDB.Driver" version="2.5.0.0" />
+      <dependency id="MongoDB.Driver.Core" version="2.5.0.0" />
+      <dependency id="MongoDB.Driver.Legacy" version="2.5.0.0" />
+      <dependency id="System.Buffers" version="4.0.2.0" />
+      <dependency id="System.Runtime.InteropServices.RuntimeInformation" version="4.0.1.0" />!-->
     </dependencies>
   </metadata>
 </package>

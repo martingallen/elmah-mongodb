@@ -15,9 +15,9 @@ namespace Elmah
 		private readonly string _collectionName;
 		private readonly int _maxDocuments;
 		private readonly int _maxSize;
-		private MongoInsertOptions _mongoInsertOptions;
+		private InsertOneOptions _mongoInsertOptions;
 
-		private MongoCollection<BsonDocument> _collection;
+		private IMongoCollection<BsonDocument> _collection;
 
 		private const int MaxAppNameLength = 60;
 		private const int DefaultMaxDocuments = int.MaxValue;
@@ -110,29 +110,36 @@ namespace Elmah
 
 		}
 
-		private void Initialize()
+        private bool CollectionExists(IMongoDatabase database, string collectionName)
+        {
+            var filter = new BsonDocument("name", collectionName);
+            //filter by collection name
+            var collections = database.ListCollections(new ListCollectionsOptions { Filter = filter });
+            //check for existence
+            return collections.Any();
+        }
+
+        private void Initialize()
 		{
 			lock (Sync)
 			{
 				var mongoUrl = MongoUrl.Create(_connectionString);
 				var mongoClient = new MongoClient(mongoUrl);
-				var server = mongoClient.GetServer();
-				var database = server.GetDatabase(mongoUrl.DatabaseName);
-				if (!database.CollectionExists(_collectionName))
+				var database = mongoClient.GetDatabase(mongoUrl.DatabaseName);
+                if (!this.CollectionExists(database, _collectionName))
 				{
-					var options = CollectionOptions
-						.SetCapped(true)
-						.SetAutoIndexId(true)
-						.SetMaxSize(_maxSize);
+                    var options = new CreateCollectionOptions { Capped = true, AutoIndexId = true, MaxSize = _maxSize };
 
-					if (_maxDocuments != int.MaxValue)
-						options.SetMaxDocuments(_maxDocuments);
+                    if (_maxDocuments != int.MaxValue)
+                    {
+                        options.MaxDocuments = _maxDocuments;
+                    }
 
 					database.CreateCollection(_collectionName, options);
 				}
 
-				_collection = database.GetCollection(_collectionName);
-				_mongoInsertOptions = new MongoInsertOptions { Flags = InsertFlags.ContinueOnError };
+				_collection = database.GetCollection<BsonDocument>(_collectionName);
+				_mongoInsertOptions = new InsertOneOptions { BypassDocumentValidation = true };
 			}
 		}
 
@@ -168,7 +175,7 @@ namespace Elmah
 			var id = ObjectId.GenerateNewId();
 			document.Add("_id", id);
 
-			_collection.Insert(document, _mongoInsertOptions);
+			_collection.InsertOneAsync(document, _mongoInsertOptions).Wait();
 
 			return id.ToString();
 		}
@@ -184,9 +191,10 @@ namespace Elmah
 			if (id == null) throw new ArgumentNullException("id");
 			if (id.Length == 0) throw new ArgumentException(null, "id");
 
-			var document = _collection.FindOneById(new ObjectId(id));
+            var filter = new BsonDocument("_id", new ObjectId(id));
+            var document = _collection.Find(filter).FirstOrDefault();
 
-			if (document == null)
+            if (document == null)
 				return null;
 
 			var error = BsonSerializer.Deserialize<Error>(document);
@@ -207,17 +215,27 @@ namespace Elmah
 			if (pageIndex < 0) throw new ArgumentOutOfRangeException("pageIndex", pageIndex, null);
 			if (pageSize < 0) throw new ArgumentOutOfRangeException("pageSize", pageSize, null);
 
-			var documents = _collection.FindAll().SetSortOrder(SortBy.Descending("$natural")).SetSkip(pageIndex * pageSize).SetLimit(pageSize);
+            var documents = _collection.Find(_ => true).Sort("{natural: -1}").Skip(pageIndex * pageSize).Limit(pageSize).ForEachAsync(
+                d =>
+                    {
+                        var id = d["_id"].AsObjectId.ToString();
+                        var error = BsonSerializer.Deserialize<Error>(d);
+                        error.Time = error.Time.ToLocalTime();
+                        errorEntryList.Add(new ErrorLogEntry(this, id, error));
+                    }
+                );
+            
+            //.SetSortOrder(SortBy.Descending("$natural")).SetSkip(pageIndex * pageSize).SetLimit(pageSize);
 
-			foreach (var document in documents)
+			/*foreach (var document in documents)
 			{
 				var id = document["_id"].AsObjectId.ToString();
 				var error = BsonSerializer.Deserialize<Error>(document);
-			  error.Time = error.Time.ToLocalTime();
+			    error.Time = error.Time.ToLocalTime();
 				errorEntryList.Add(new ErrorLogEntry(this, id, error));
-			}
+			}*/
 
-			return (int) _collection.Count();
+			return errorEntryList.Count;
 		}
 
 		public static int GetCollectionLimit(IDictionary config)

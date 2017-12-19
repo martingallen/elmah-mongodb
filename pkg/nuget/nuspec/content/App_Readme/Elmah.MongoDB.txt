@@ -1,3 +1,7 @@
 Please note that in order to complete the installation of ELMAH.MongoDB you will have to do the following:
 
+This has been updated by Martin Allen with most recent nuget packages as of 19th December 2017.
+
+Modifications made to API usage to bring it in line with newer MongoDB API calls.
+
 1) Edit your web.config with the correct settings in the elmah <connectionString> to connect to your database
